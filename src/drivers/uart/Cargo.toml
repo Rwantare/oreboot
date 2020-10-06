@@ -14,6 +14,7 @@ register = "0.5.x"
 
 # Heapless does not build for rv32imc.
 [dependencies.heapless]
+version = "0.5.x"
 optional = true
 
 [features]

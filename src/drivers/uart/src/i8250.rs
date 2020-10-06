@@ -1,11 +1,41 @@
 //use core::ops;
 use model::*;
-use register::mmio::{ReadOnly, ReadWrite};
-use register::{register_bitfields, Field}; // How to use -> https://github.com/tock/tock/tree/master/libraries/tock-register-interface
+// use arch::ioport::IOPort;
+use register::mmio::{ReadOnly, ReadWrite, WriteOnly};
+use register::{register_bitfields, register_structs}; // How to use -> https://github.com/tock/tock/tree/master/libraries/tock-register-interface
+
+register_structs! {
+  pub RegisterBlk {
+      (0x00 => thr: WriteOnly<u8, THR::Register>),
+      // (0x00 => rbr: ReadOnly<u8, RBR::Register>),
+      // (0x00 => dll: ReadWrite<u8, DLL::Register>),
+      (0x01 => dlh: ReadWrite<u8, DLH::Register>),
+      // (0x01 => ier: ReadWrite<u8, IER::Register>),
+      (0x02 => iir: ReadOnly<u8, IIR::Register>),
+      // (0x02 => fcr: WriteOnly<u8, FCR::Register>),
+      (0x03 => lcr: ReadWrite<u8, LCR::Register>),
+      (0x04 => mcr: ReadWrite<u8, MCR::Register>),
+      (0x05 => lsr: ReadOnly<u8, LSR::Register>),
+      (0x06 => msr: ReadOnly<u8, MSR::Register>),
+      (0x07 => scr: ReadWrite<u8, SCR::Register>),
+      (0x08 => @END),
+  }
+}
 
 #[repr(C)]
 pub struct RegisterBlock {
-    uart: ReadWrite<u8, UART::Register>,
+    thr: WriteOnly<u8, THR::Register>,
+    rbr: ReadOnly<u8, RBR::Register>,
+    dll: ReadWrite<u8, DLL::Register>,
+    dlh: ReadWrite<u8, DLH::Register>,
+    ier: ReadWrite<u8, IER::Register>,
+    iir: ReadOnly<u8, IIR::Register>,
+    fcr: WriteOnly<u8, FCR::Register>,
+    lcr: ReadWrite<u8, LCR::Register>,
+    mcr: ReadWrite<u8, MCR::Register>,
+    lsr: ReadOnly<u8, LSR::Register>,
+    msr: ReadOnly<u8, MSR::Register>,
+    scr: ReadWrite<u8, SCR::Register>,
 }
 
 pub struct I8250<'a> {
@@ -53,22 +83,21 @@ impl<'a> I8250<'a> {
 
 #[allow(dead_code)]
 impl<'a> Driver for I8250<'a> {
-    const IER: usize = 0x01; // Interrupt Enable Register            0b0001 RW
-    const IIR: usize = 0x02; // Interrupt Identification Register    0b0010 R
-    const FCR: usize = 0x02; // FIFO Control Register                0b0010 W
-    const LCR: usize = 0x03; // Line Control Register                0b0011 RW
-    const MCR: usize = 0x04; // Modem Control Register               0b0100 RW
-    const MCR_DMA_EN: usize = 0x04;
-    const MCR_TX_DFR: usize = 0x08;
-    const DLL: usize = 0x00; // Divisor Latch Low Byte               0      RW
-    const DLH: usize = 0x01; // Divisor Latch High Byte              0x0001 RW
-    const LSR: usize = 0x05; // Line Status Register                 0x0101 R
-    const MSR: usize = 0x06; // Modem Status Register                0x0110 R
-    const SCR: usize = 0x07; // Scratch Register                     0x0111 RW
-    const DLAB: u8 = 0x80; // Divisor Latch Access Bit             0x1000 RW
-
     // TODO: properly use the register crate.
     fn init(&mut self) -> Result<()> {
+        const IER: usize = 0x01; // Interrupt Enable Register            0b0001 RW
+        const IIR: usize = 0x02; // Interrupt Identification Register    0b0010 R
+        const FCR: usize = 0x02; // FIFO Control Register                0b0010 W
+        const LCR: usize = 0x03; // Line Control Register                0b0011 RW
+        const MCR: usize = 0x04; // Modem Control Register               0b0100 RW
+        const MCR_DMA_EN: usize = 0x04;
+        const MCR_TX_DFR: usize = 0x08;
+        const DLL: usize = 0x00; // Divisor Latch Low Byte               0      RW
+        const DLH: usize = 0x01; // Divisor Latch High Byte              0x0001 RW
+        const LSR: usize = 0x05; // Line Status Register                 0x0101 R
+        const MSR: usize = 0x06; // Modem Status Register                0x0110 R
+        const SCR: usize = 0x07; // Scratch Register                     0x0111 RW
+        const DLAB: u8 = 0x80; // Divisor Latch Access Bit             0x1000 RW
         const FIFOENABLE: u8 = 1;
 
         const EIGHTN1: u8 = 3; //?
@@ -121,7 +150,7 @@ impl<'a> Driver for I8250<'a> {
     fn pread(&self, data: &mut [u8], _offset: usize) -> Result<usize> {
         for c in data.iter_mut() {
             let mut s = [0u8; 1];
-            while !self.poll_status(IER, 1) {}
+            while !self.poll_status(0x01, 1) {}
             self.d.pread(&mut s, self.base).unwrap();
             *c = s[0];
         }
@@ -142,57 +171,129 @@ impl<'a> Driver for I8250<'a> {
     fn shutdown(&mut self) {}
 }
 
-// // TODO: bitfields
+//Register bitfield syntax at: https://github.com/tock/tock/tree/master/libraries/tock-register-interface
+// Bitfields are defined as:
+        // name OFFSET(shift) NUMBITS(num) [ /* optional values */ ]
 register_bitfields! {
     u8,
-    THR [ // Transmitter Holding Buffer
-        //TODO
+
+    THR [ //  Transmitter Holding Buffer   WRITE ONLY
+      DATA OFFSET(0) NUMBITS(8) []
     ],
-    RBR [ // Transmitter Receiver Buffer
-        //TODO
+
+    RBR [ //  Transmitter Receiver Buffer  READ ONLY
+      DATA OFFSET(0) NUMBITS(8) []
     ],
-    DLL [ //    Divisor Latch Bytes Low
-        //TODO
+
+    DLL[ //  Divisor Latch Bytes Low
+      BYTES OFFSET(0) NUMBITS(8) []
     ],
-    IER [ //    Interrupt Enable Register
-        RECEIVED_DATA_AVAILABLE OFFSET(0) NUMBITS(1) [],
-        THR_EMPTY               OFFSET(1) NUMBITS(1) [],
-        RECEIVER_LINE_STATUS    OFFSET(2) NUMBITS(1) [],
-        MODEM_STATUS            OFFSET(3) NUMBITS(1) [],
-        SLEEP_MODE              OFFSET(4) NUMBITS(1) [],
-        LOW_POWER_MODE          OFFSET(5) NUMBITS(1) [],
-        RESERVED                OFFSET(6) NUMBITS(1) [],
+
+    DLH [ //  Divisor Latch Bytes High
+      BYTES OFFSET(0) NUMBITS(8) []
     ],
-    DLH [ //Divisor Latch Bytes High
-        //TODO
+
+    IER [ //  Interrupt Enable Register
+      RECEIVED_DATA_AVAILABLE 0,
+      THR_EMPTY               1,
+      RECEIVER_LINE_STATUS    2,
+      MODEM_STATUS            3,
+      SLEEP_MODE              4, // 16750 Only
+      LOW_POWER_MODE          5 // 16750 Only
     ],
+//  Interrupt Identification Register
     IIR [
-        INTERRUPT_PENDING OFFSET(0) NUMBITS(1),
-        GROUP_ONE OFFSET(1) NUMBITS(3) [
+        INTERRUPT_PENDING OFFSET(0) NUMBITS(1) [],
+        GENERAL OFFSET(1) NUMBITS(3) [
             ModemStatus = 0,
-            THREmpty =1,
+            ThrEmpty = 1,
             ReceivedDataAvailable = 2,
-            ReceiverLineStatus = 3,
-            TimeoutInterruptPending = 6,
+            ReceiverLineStatus = 3, // Overflow on RBR
+            TimeoutInterruptPending = 6
         ],
-        
+        // FIFO_ENABLED_16750 OFFSET(5) NUMBITS(1) [],
+        FIFO OFFSET(6) NUMBITS(2) [
+          NoFifo = 0,
+          NotFunctioning = 2,
+          Enabled = 3,
+        ]
     ],
-    FCR [
-        //TODO
+
+    FCR [ // FIFO Control Register WRITE ONLY
+      FIFO_ENABLE       OFFSET(0) NUMBITS(1) [],
+      CLR_RECEIVE       OFFSET(1) NUMBITS(1) [],
+      CLR_TRANSMIT      OFFSET(2) NUMBITS(1) [],
+      DMA_MODE          OFFSET(3) NUMBITS(1) [],
+      FIFO_64B_ENABLE   OFFSET(5) NUMBITS(1) [],
+      TRIGGER_THRESHOLD OFFSET(6) NUMBITS(2) [ // FIFO Buffer size alert threshold
+        Max     = 0,  // 1 byte
+        High    = 1,  // 4
+        Medium  = 2,  // 8
+        Low     = 3   // 14
+      ]
     ],
-    LCR [
-        //TODO
+
+    LCR [ // Line Control Register
+      WORD_LENGTH OFFSET(0) NUMBITS(2) [
+        Five = 0,
+        Six = 1,
+        Seven = 2,
+        Eight = 3,
+      ],
+      EXTEND_STOP_BIT OFFSET(2) NUMBITS(1) [],
+      PARITY OFFSET(3) NUMBITS(3) [
+        None  = 0b000,
+        Odd   = 0b001,
+        Even  = 0b011,
+        Mark  = 0b101,
+        Space = 0b111,
+      ],
+      SET_BREAK OFFSET(6) NUMBITS(1) [],
+      DLAB OFFSET(7) NUMBITS(1) []
     ],
-    MCR [
-        //TODO
+
+    MCR [ // Modem Control Register
+      DTR 0,  // Data Terminal Ready
+      RTS 1,  // Request To Send
+      AUX_OUT_1 2,
+      AUX_OUT_2 3,
+      LOOPBACK 4
     ],
-    LSR [
-        //TODO
+
+    LSR [ // Line Status Register
+      DATA_READY    0,
+      OVERRUN_ERR   1,
+      PARITY_ERR    2,
+      FRAMING_ERR   3,
+      BREAK         4,        // Break interrupt received i.e. line dead
+      THR_EMPTY     5,
+      DHR_EMPTY     6,        // Empty data holding registers
+      RECEIVED_FIFO_ERR 7     // General
     ],
-    MSR [
-        //TODO
+
+    MSR [ // Modem Status Register
+      CLEAR_TO_SEND OFFSET(4) NUMBITS(1),
+      DATA_SET_READY  OFFSET(5) NUMBITS(1),
+      RING_INDICATOR  OFFSET(6) NUMBITS(1),
+      CARRIER_DETECT  OFFSET(7) NUMBITS(1)
     ],
-    SCR [
-        //TODO
-    ],
+
+    SCR [ // Scratch Register
+      DATA OFFSET(0) NUMBITS(8)
+    ]
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn uart_driver_inits_correctly() {
+        let x: u64 = 0; // 8 bytes of zeroed memory
+        let ptr = &x as *const _;
+        let io = &mut IOPort;
+        let test_uart = &mut I8250::new(ptr, 0, io);
+        assert_ne!(0,*ptr as u64);
+        test_uart.init().unwrap();
+
+        assert_eq!(1,1);
+    }
 }
