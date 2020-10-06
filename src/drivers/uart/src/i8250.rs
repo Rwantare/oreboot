@@ -40,6 +40,7 @@ impl<'a> I8250<'a> {
     // fn ptr(&self) -> *const RegisterBlock {
     //     self.base as *const _
     // }
+    
     /// Poll the status register until the specified field is set to the given value.
     /// Returns false iff it timed out.
     //    fn poll_status(&self, bit: Field<u8, LS::Register>, val: bool) -> bool {
@@ -58,24 +59,27 @@ impl<'a> I8250<'a> {
 
 #[allow(dead_code)]
 impl<'a> Driver for I8250<'a> {
+    
+    const IER: usize = 0x01;    // Interrupt Enable Register            0b0001 RW
+    const IIR: usize = 0x02;    // Interrupt Identification Register    0b0010 R
+    const FCR: usize = 0x02;    // FIFO Control Register                0b0010 W
+    const LCR: usize = 0x03;    // Line Control Register                0b0011 RW
+    const MCR: usize = 0x04;    // Modem Control Register               0b0100 RW
+    const MCR_DMA_EN: usize = 0x04;
+    const MCR_TX_DFR: usize = 0x08;
+    const DLL: usize = 0x00;    // Divisor Latch Low Byte               0      RW
+    const DLH: usize = 0x01;    // Divisor Latch High Byte              0x0001 RW
+    const LSR: usize = 0x05;    // Line Status Register                 0x0101 R
+    const MSR: usize = 0x06;    // Modem Status Register                0x0110 R
+    const SCR: usize = 0x07;    // Scratch Register                     0x0111 RW
+
     // TODO: properly use the register crate.
     fn init(&mut self) -> Result<()> {
-        const IER: usize = 0x01;
-        const IIR: usize = 0x02;
-        const FCR: usize = 0x02;
-        const LCR: usize = 0x03;
-        const MCR: usize = 0x04;
-        const MCR_DMA_EN: usize = 0x04;
-        const MCR_TX_DFR: usize = 0x08;
-        const DLL: usize = 0x00;
-        const DLM: usize = 0x01;
-        const LSR: usize = 0x05;
-        const MSR: usize = 0x06;
-        const SCR: usize = 0x07;
+
 
         const FIFOENABLE: u8 = 1;
-        const DLAB: u8 = 0x80;
-        const EIGHTN1: u8 = 3;
+        const DLAB: u8 = 0x80;      // Divisor Latch Access Bit             0x1000 RW
+        const EIGHTN1: u8 = 3;      //?
 
         let mut s: [u8; 1] = [0u8; 1];
         self.d.pwrite(&s, self.base + IER).unwrap();
@@ -100,7 +104,7 @@ impl<'a> Driver for I8250<'a> {
         s[0] = 1;
         self.d.pwrite(&s, self.base + DLL).unwrap();
         s[0] = 0;
-        self.d.pwrite(&s, self.base + DLM).unwrap();
+        self.d.pwrite(&s, self.base + DLH).unwrap(); //??
         //outb(divisor & 0xFF,   base_port + UART8250_DLL);
         //outb((divisor >> 8) & 0xFF,    base_port + UART8250_DLM);
 
@@ -125,7 +129,7 @@ impl<'a> Driver for I8250<'a> {
     fn pread(&self, data: &mut [u8], _offset: usize) -> Result<usize> {
         for c in data.iter_mut() {
             let mut s = [0u8; 1];
-            while !self.poll_status(1, 1) {}
+            while !self.poll_status(IER, 1) {}
             self.d.pread(&mut s, self.base).unwrap();
             *c = s[0];
         }
