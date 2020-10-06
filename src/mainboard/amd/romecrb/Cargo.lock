@@ -158,7 +158,16 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "469bb5ddde81d67fb8bba4e14d77689b8166cfd077abe7530591cefe29d05823"
 dependencies = [
- "tock-registers",
+ "tock-registers 0.3.0",
+]
+
+[[package]]
+name = "register"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "deaba5b0e477d21f61a57504bb5cef4a1e86de30300b457d38971c1cfc98b815"
+dependencies = [
+ "tock-registers 0.5.0",
 ]
 
 [[package]]
@@ -172,7 +181,7 @@ dependencies = [
  "payloads",
  "postcard",
  "print",
- "register",
+ "register 0.3.3",
  "static-ref",
  "uart",
  "wrappers",
@@ -228,6 +237,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c758f5195a2e0df9d9fecf6f506506b2766ff74cf64db1e995c87e2761a5c3e2"
 
 [[package]]
+name = "tock-registers"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70323afdb8082186c0986da0e10f6e4ed103d681c921c00597e98d9806dac20f"
+
+[[package]]
 name = "typenum"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -239,7 +254,7 @@ version = "0.1.0"
 dependencies = [
  "clock",
  "model",
- "register",
+ "register 0.5.1",
 ]
 
 [[package]]
