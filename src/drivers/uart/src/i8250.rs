@@ -1,19 +1,13 @@
 //use core::ops;
 use model::*;
-//use register::mmio::{ReadOnly, ReadWrite};
-//use register::{register_bitfields, Field};
+use register::mmio::{ReadOnly, ReadWrite};
+use register::{register_bitfields, Field}; // How to use -> https://github.com/tock/tock/tree/master/libraries/tock-register-interface
 
-/*
 #[repr(C)]
 pub struct RegisterBlock {
-    d: ReadWrite<u8, D::Register>,
-    ie: ReadWrite<u8, IE::Register>,
-    fc: ReadWrite<u8, FC::Register>,
-    lc: ReadWrite<u8, LC::Register>,
-    mc: ReadWrite<u8, MC::Register>,
-    ls: ReadOnly<u8, LS::Register>,
+    uart: ReadWrite<u8, UART::Register>,
 }
-*/
+
 pub struct I8250<'a> {
     base: usize,
     _baud: u32,
@@ -40,7 +34,7 @@ impl<'a> I8250<'a> {
     // fn ptr(&self) -> *const RegisterBlock {
     //     self.base as *const _
     // }
-    
+
     /// Poll the status register until the specified field is set to the given value.
     /// Returns false iff it timed out.
     //    fn poll_status(&self, bit: Field<u8, LS::Register>, val: bool) -> bool {
@@ -59,27 +53,25 @@ impl<'a> I8250<'a> {
 
 #[allow(dead_code)]
 impl<'a> Driver for I8250<'a> {
-    
-    const IER: usize = 0x01;    // Interrupt Enable Register            0b0001 RW
-    const IIR: usize = 0x02;    // Interrupt Identification Register    0b0010 R
-    const FCR: usize = 0x02;    // FIFO Control Register                0b0010 W
-    const LCR: usize = 0x03;    // Line Control Register                0b0011 RW
-    const MCR: usize = 0x04;    // Modem Control Register               0b0100 RW
+    const IER: usize = 0x01; // Interrupt Enable Register            0b0001 RW
+    const IIR: usize = 0x02; // Interrupt Identification Register    0b0010 R
+    const FCR: usize = 0x02; // FIFO Control Register                0b0010 W
+    const LCR: usize = 0x03; // Line Control Register                0b0011 RW
+    const MCR: usize = 0x04; // Modem Control Register               0b0100 RW
     const MCR_DMA_EN: usize = 0x04;
     const MCR_TX_DFR: usize = 0x08;
-    const DLL: usize = 0x00;    // Divisor Latch Low Byte               0      RW
-    const DLH: usize = 0x01;    // Divisor Latch High Byte              0x0001 RW
-    const LSR: usize = 0x05;    // Line Status Register                 0x0101 R
-    const MSR: usize = 0x06;    // Modem Status Register                0x0110 R
-    const SCR: usize = 0x07;    // Scratch Register                     0x0111 RW
+    const DLL: usize = 0x00; // Divisor Latch Low Byte               0      RW
+    const DLH: usize = 0x01; // Divisor Latch High Byte              0x0001 RW
+    const LSR: usize = 0x05; // Line Status Register                 0x0101 R
+    const MSR: usize = 0x06; // Modem Status Register                0x0110 R
+    const SCR: usize = 0x07; // Scratch Register                     0x0111 RW
+    const DLAB: u8 = 0x80; // Divisor Latch Access Bit             0x1000 RW
 
     // TODO: properly use the register crate.
     fn init(&mut self) -> Result<()> {
-
-
         const FIFOENABLE: u8 = 1;
-        const DLAB: u8 = 0x80;      // Divisor Latch Access Bit             0x1000 RW
-        const EIGHTN1: u8 = 3;      //?
+
+        const EIGHTN1: u8 = 3; //?
 
         let mut s: [u8; 1] = [0u8; 1];
         self.d.pwrite(&s, self.base + IER).unwrap();
@@ -104,7 +96,7 @@ impl<'a> Driver for I8250<'a> {
         s[0] = 1;
         self.d.pwrite(&s, self.base + DLL).unwrap();
         s[0] = 0;
-        self.d.pwrite(&s, self.base + DLH).unwrap(); //??
+        self.d.pwrite(&s, self.base + DLH).unwrap();
         //outb(divisor & 0xFF,   base_port + UART8250_DLL);
         //outb((divisor >> 8) & 0xFF,    base_port + UART8250_DLM);
 
@@ -151,42 +143,56 @@ impl<'a> Driver for I8250<'a> {
 }
 
 // // TODO: bitfields
-// register_bitfields! {
-//     u8,
-//     // Data register
-//     D [
-//         DATA OFFSET(0) NUMBITS(8) []
-//     ],
-//     IE [
-//         RX OFFSET(0) NUMBITS(1) [],
-//         TX OFFSET(1) NUMBITS(1) [],
-//         Error OFFSET(2) NUMBITS(1) [],
-//         StatusChange OFFSET(3) NUMBITS(1) []
-//     ],
-//     FC [
-//         DATA OFFSET(0) NUMBITS(8) []
-//     ],
-//     LC [
-//         WLEN OFFSET(0) NUMBITS(2) [
-//             WLEN_5 = 0,
-//             WLEN_6 = 1,
-//             WLEN_7 = 2,
-//             WLEN_8 = 3
-//         ],
-//         StopBits OFFSET(3) NUMBITS(1) [],
-//         ParityEnable OFFSET(4) NUMBITS(1) [],
-//         EvenParity OFFSET(5) NUMBITS (1) [],
-//         StickParity OFFSET(6) NUMBITS (1) [],
-//         DivisorLatchAccessBit OFFSET(7) NUMBITS (1) [
-//             Normal = 0,
-//             BaudRate = 1
-//         ]
-//     ],
-//     MC [
-//         DATA OFFSET(0) NUMBITS(8) []
-//     ],
-//     LS [
-//         IF OFFSET(0) NUMBITS(1) [],
-//         OE OFFSET(1) NUMBITS(1) []
-//     ]
-// }
+register_bitfields! {
+    u8,
+    THR [ // Transmitter Holding Buffer
+        //TODO
+    ],
+    RBR [ // Transmitter Receiver Buffer
+        //TODO
+    ],
+    DLL [ //    Divisor Latch Bytes Low
+        //TODO
+    ],
+    IER [ //    Interrupt Enable Register
+        RECEIVED_DATA_AVAILABLE OFFSET(0) NUMBITS(1) [],
+        THR_EMPTY               OFFSET(1) NUMBITS(1) [],
+        RECEIVER_LINE_STATUS    OFFSET(2) NUMBITS(1) [],
+        MODEM_STATUS            OFFSET(3) NUMBITS(1) [],
+        SLEEP_MODE              OFFSET(4) NUMBITS(1) [],
+        LOW_POWER_MODE          OFFSET(5) NUMBITS(1) [],
+        RESERVED                OFFSET(6) NUMBITS(1) [],
+    ],
+    DLH [ //Divisor Latch Bytes High
+        //TODO
+    ],
+    IIR [
+        INTERRUPT_PENDING OFFSET(0) NUMBITS(1),
+        GROUP_ONE OFFSET(1) NUMBITS(3) [
+            ModemStatus = 0,
+            THREmpty =1,
+            ReceivedDataAvailable = 2,
+            ReceiverLineStatus = 3,
+            TimeoutInterruptPending = 6,
+        ],
+        
+    ],
+    FCR [
+        //TODO
+    ],
+    LCR [
+        //TODO
+    ],
+    MCR [
+        //TODO
+    ],
+    LSR [
+        //TODO
+    ],
+    MSR [
+        //TODO
+    ],
+    SCR [
+        //TODO
+    ],
+}
