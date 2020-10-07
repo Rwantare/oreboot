@@ -8,19 +8,16 @@ edition = "2018"
 opt-level = 'z'  # Optimize for size.
 
 [dependencies]
+arch = { path = "../../arch/x86/x86_64" }
 model = { path = "../model"}
 clock = { path = "../clock"}
 register = "0.5.x"
-
-# Heapless does not build for rv32imc.
-[dependencies.heapless]
-version = "0.5.x"
-optional = true
+heapless = { version = "0.*", optional = true }  # Heapless does not build for rv32imc.
 
 [features]
-i8250 = []
+i8250 = ["heapless"]
 pl011 = []
 ns16550 = []
 sifive = []
-log = []
+log = ["heapless"]
 opentitan = []

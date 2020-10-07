@@ -1,42 +1,41 @@
 //use core::ops;
 use model::*;
-// use arch::ioport::IOPort;
 use register::mmio::{ReadOnly, ReadWrite, WriteOnly};
 use register::{register_bitfields, register_structs}; // How to use -> https://github.com/tock/tock/tree/master/libraries/tock-register-interface
 
 register_structs! {
-  pub RegisterBlk {
-      (0x00 => thr: WriteOnly<u8, THR::Register>),
-      // (0x00 => rbr: ReadOnly<u8, RBR::Register>),
-      // (0x00 => dll: ReadWrite<u8, DLL::Register>),
-      (0x01 => dlh: ReadWrite<u8, DLH::Register>),
-      // (0x01 => ier: ReadWrite<u8, IER::Register>),
-      (0x02 => iir: ReadOnly<u8, IIR::Register>),
-      // (0x02 => fcr: WriteOnly<u8, FCR::Register>),
-      (0x03 => lcr: ReadWrite<u8, LCR::Register>),
-      (0x04 => mcr: ReadWrite<u8, MCR::Register>),
-      (0x05 => lsr: ReadOnly<u8, LSR::Register>),
-      (0x06 => msr: ReadOnly<u8, MSR::Register>),
-      (0x07 => scr: ReadWrite<u8, SCR::Register>),
-      (0x08 => @END),
+  pub RegisterBlock {
+    (0x00 => thr: WriteOnly<u8, THR::Register>),
+    // (0x00 => rbr: ReadOnly<u8, RBR::Register>),
+    // (0x00 => dll: ReadWrite<u8, DLL::Register>),
+    (0x01 => dlh: ReadWrite<u8, DLH::Register>),
+    // (0x01 => ier: ReadWrite<u8, IER::Register>),
+    // (0x02 => iir: ReadOnly<u8, IIR::Register>),
+    (0x02 => fcr: WriteOnly<u8, FCR::Register>),
+    (0x03 => lcr: ReadWrite<u8, LCR::Register>),
+    (0x04 => mcr: ReadWrite<u8, MCR::Register>),
+    (0x05 => lsr: ReadOnly<u8, LSR::Register>),
+    (0x06 => msr: ReadOnly<u8, MSR::Register>),
+    (0x07 => scr: ReadWrite<u8, SCR::Register>),
+    (0x08 => @END),
   }
 }
 
-#[repr(C)]
-pub struct RegisterBlock {
-    thr: WriteOnly<u8, THR::Register>,
-    rbr: ReadOnly<u8, RBR::Register>,
-    dll: ReadWrite<u8, DLL::Register>,
-    dlh: ReadWrite<u8, DLH::Register>,
-    ier: ReadWrite<u8, IER::Register>,
-    iir: ReadOnly<u8, IIR::Register>,
-    fcr: WriteOnly<u8, FCR::Register>,
-    lcr: ReadWrite<u8, LCR::Register>,
-    mcr: ReadWrite<u8, MCR::Register>,
-    lsr: ReadOnly<u8, LSR::Register>,
-    msr: ReadOnly<u8, MSR::Register>,
-    scr: ReadWrite<u8, SCR::Register>,
-}
+// #[repr(C)]
+// pub struct RegisterBlock {
+//     thr: WriteOnly<u8, THR::Register>,
+//     rbr: ReadOnly<u8, RBR::Register>,
+//     dll: ReadWrite<u8, DLL::Register>,
+//     dlh: ReadWrite<u8, DLH::Register>,
+//     ier: ReadWrite<u8, IER::Register>,
+//     iir: ReadOnly<u8, IIR::Register>,
+//     fcr: WriteOnly<u8, FCR::Register>,
+//     lcr: ReadWrite<u8, LCR::Register>,
+//     mcr: ReadWrite<u8, MCR::Register>,
+//     lsr: ReadOnly<u8, LSR::Register>,
+//     msr: ReadOnly<u8, MSR::Register>,
+//     scr: ReadWrite<u8, SCR::Register>,
+// }
 
 pub struct I8250<'a> {
     base: usize,
@@ -53,6 +52,22 @@ pub struct I8250<'a> {
 //         unsafe { &*self.ptr() }
 //     }
 // }
+
+
+/*
+How to use
+Normally:
+
+some8250struct.regName.set(< your inputs here>);
+              ^Deref coerces this method call to go to the Registerblock instead of the driver struct
+
+The special way
+some8250struct.regBlock.regName.modify(<your inputs here>)
+              ^dref1   ^dref2
+              deref1 redirects to a struct with 3 reg blocks
+              deref2 gives you a register block
+*/
+
 
 impl<'a> I8250<'a> {
     // why is base a usize? for mmio 8250.
@@ -173,10 +188,9 @@ impl<'a> Driver for I8250<'a> {
 
 //Register bitfield syntax at: https://github.com/tock/tock/tree/master/libraries/tock-register-interface
 // Bitfields are defined as:
-        // name OFFSET(shift) NUMBITS(num) [ /* optional values */ ]
+// name OFFSET(shift) NUMBITS(num) [ /* optional values */ ]
 register_bitfields! {
     u8,
-
     THR [ //  Transmitter Holding Buffer   WRITE ONLY
       DATA OFFSET(0) NUMBITS(8) []
     ],
@@ -215,7 +229,7 @@ register_bitfields! {
         FIFO OFFSET(6) NUMBITS(2) [
           NoFifo = 0,
           NotFunctioning = 2,
-          Enabled = 3,
+          Enabled = 3
         ]
     ],
 
@@ -238,7 +252,7 @@ register_bitfields! {
         Five = 0,
         Six = 1,
         Seven = 2,
-        Eight = 3,
+        Eight = 3
       ],
       EXTEND_STOP_BIT OFFSET(2) NUMBITS(1) [],
       PARITY OFFSET(3) NUMBITS(3) [
@@ -246,7 +260,7 @@ register_bitfields! {
         Odd   = 0b001,
         Even  = 0b011,
         Mark  = 0b101,
-        Space = 0b111,
+        Space = 0b111
       ],
       SET_BREAK OFFSET(6) NUMBITS(1) [],
       DLAB OFFSET(7) NUMBITS(1) []
@@ -285,15 +299,63 @@ register_bitfields! {
 
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn uart_driver_inits_correctly() {
-        let x: u64 = 0; // 8 bytes of zeroed memory
-        let ptr = &x as *const _;
-        let io = &mut IOPort;
-        let test_uart = &mut I8250::new(ptr, 0, io);
-        assert_ne!(0,*ptr as u64);
-        test_uart.init().unwrap();
+  use super::*;
 
-        assert_eq!(1,1);
+  /*
+  * UART pushing into a vec, copied from log.rs because rust doesn't let you
+  * "use" sibling modules in unit tests
+  */
+  extern crate heapless; // v0.4.x
+  use heapless::consts::*;
+  use heapless::Vec;
+  pub struct TestLog<'a> {
+    dat: &'a mut Vec<u8, U1024>,
+  }
+
+  impl<'a> TestLog<'a> {
+    pub fn new(v: &'a mut Vec<u8, U1024>) -> TestLog {
+        TestLog { dat: v }
     }
+  }
+
+  impl<'a> Driver for TestLog<'a> {
+    fn init(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    fn pread(&self, _data: &mut [u8], _offset: usize) -> Result<usize> {
+        return Ok(0);
+    }
+
+    fn pwrite(&mut self, data: &[u8], _offset: usize) -> Result<usize> {
+        for (_, &c) in data.iter().enumerate() {
+            self.dat.push(c).unwrap();
+        }
+        Ok(data.len())
+    }
+
+    fn shutdown(&mut self) {}
+  }
+
+  const IER: usize = 0x01; // Interrupt Enable Register            0b0001 RW
+  const FCR: usize = 0x02; // FIFO Control Register                0b0010 W
+  const LCR: usize = 0x03; // Line Control Register                0b0011 RW
+  const DLL: usize = 0x00; // Divisor Latch Low Byte               0      RW
+  const DLH: usize = 0x01; // Divisor Latch High Byte              0x0001 RW
+  const DLAB: usize = 0x80;    // Divisor Latch Access Bit             0x1000 RW
+
+  #[test]
+  fn uart_driver_inits_correctly() {
+    let mut vec = Vec::<u8, U1024>::new();
+    let log = &mut TestLog::new(&mut vec);
+
+    let test_uart = &mut I8250::new(0, 0, log);
+    test_uart.init().unwrap();
+
+    assert_eq!(1, vec[IER]);      //Interrupts enabled
+    assert_eq!(1, 1 & vec[FCR]);  // FIFOs enabled
+
+    /* DLAB gets set, baud is non-zero, FIFOs enabled */
+    // assert_eq!(0x1 & vec[DLL], 1);    // Baud rate set to 115200
+  }
 }
