@@ -1,58 +1,71 @@
-//use core::ops;
+use core::ops;
+use core::mem::transmute;
 use model::*;
 use register::mmio::{ReadOnly, ReadWrite, WriteOnly};
-use register::{register_bitfields, register_structs}; // How to use -> https://github.com/tock/tock/tree/master/libraries/tock-register-interface
-
-register_structs! {
-  pub RegisterBlock {
-    (0x00 => thr: WriteOnly<u8, THR::Register>),
-    // (0x00 => rbr: ReadOnly<u8, RBR::Register>),
-    // (0x00 => dll: ReadWrite<u8, DLL::Register>),
-    (0x01 => dlh: ReadWrite<u8, DLH::Register>),
-    // (0x01 => ier: ReadWrite<u8, IER::Register>),
-    // (0x02 => iir: ReadOnly<u8, IIR::Register>),
-    (0x02 => fcr: WriteOnly<u8, FCR::Register>),
-    (0x03 => lcr: ReadWrite<u8, LCR::Register>),
-    (0x04 => mcr: ReadWrite<u8, MCR::Register>),
-    (0x05 => lsr: ReadOnly<u8, LSR::Register>),
-    (0x06 => msr: ReadOnly<u8, MSR::Register>),
-    (0x07 => scr: ReadWrite<u8, SCR::Register>),
-    (0x08 => @END),
-  }
-}
-
-// #[repr(C)]
-// pub struct RegisterBlock {
-//     thr: WriteOnly<u8, THR::Register>,
-//     rbr: ReadOnly<u8, RBR::Register>,
-//     dll: ReadWrite<u8, DLL::Register>,
-//     dlh: ReadWrite<u8, DLH::Register>,
-//     ier: ReadWrite<u8, IER::Register>,
-//     iir: ReadOnly<u8, IIR::Register>,
-//     fcr: WriteOnly<u8, FCR::Register>,
-//     lcr: ReadWrite<u8, LCR::Register>,
-//     mcr: ReadWrite<u8, MCR::Register>,
-//     lsr: ReadOnly<u8, LSR::Register>,
-//     msr: ReadOnly<u8, MSR::Register>,
-//     scr: ReadWrite<u8, SCR::Register>,
-// }
+use register::register_bitfields; // How to use -> https://github.com/tock/tock/tree/master/libraries/tock-register-interface
 
 pub struct I8250<'a> {
     base: usize,
     _baud: u32,
     d: &'a mut dyn Driver,
+    blocks: RegisterBlockSelect<'a>,
 }
 
-// it is possible that trying to make this work is a fool's errand but
-// ... would be nice if the deref used the Driver in the 8250 ... dream on.
-// impl ops::Deref for I8250 {
-//     type Target = RegisterBlock;
+impl<'a> I8250<'a> {
+    // why is base a usize? for mmio 8250.
+    pub fn new(base: usize, _baud: u32, d: &'a mut dyn Driver) -> I8250<'a> {
+        // Avert your eyes,
+        // i8250 has overloaded registers at the same address depending on whether you're reading, writing, or DLAB flag is set
+        // Therefore, the three registerblocks share a base address
+        let blocks = unsafe { RegisterBlockSelect { main: transmute::<usize, &MainRegisterBlock>(base), aux: transmute::<usize, &AuxRegisterBlock>(base) } };
+        I8250 { base, _baud, d, blocks }
+    }
 
-//     fn deref(&self) -> &Self::Target {
-//         unsafe { &*self.ptr() }
-//     }
-// }
+    /// Poll the status register until the specified field is set to the given value.
+    /// Returns false iff it timed out.
+    fn poll_status(&self, mask: u8, val: u8) -> bool {
+        // Timeout after a few thousand cycles to prevent hanging forever.
+        for _ in 0..100_000 {
+            let mut s = [0; 1];
+            self.d.pread(&mut s, self.base + 5).unwrap();
+            if s[0] & mask == val {
+                return true;
+            }
+        }
+        return false;
+    }
+}
 
+impl<'a> ops::Deref for I8250<'a> {
+  type Target = RegisterBlockSelect<'a>;
+  fn deref(&self) -> &Self::Target {
+    &self.blocks
+  }
+}
+
+pub struct RegisterBlockSelect<'a> {
+    main: &'a MainRegisterBlock,
+    aux: &'a AuxRegisterBlock,
+}
+
+#[repr(C)]
+pub struct MainRegisterBlock {
+    rbr_thr: ReadWrite<u8, RBR::Register>,  /* Receiver Buffer & Transmitter Holding Buffer depending on read or write */
+    ier: ReadWrite<u8, IER::Register>, /* Interrupt Enable Register */
+    fcr: WriteOnly<u8, FCR::Register>, /* FIFO Control Register */
+    lcr: ReadWrite<u8, LCR::Register>, /* Line Control Register */
+    mcr: ReadWrite<u8, MCR::Register>, /* Modem Control Register */
+    lsr: ReadOnly<u8, LSR::Register>,  /* Line Status Register */
+    msr: ReadOnly<u8, MSR::Register>,  /* Modem Status Register */
+    scr: ReadWrite<u8, SCR::Register>, /* Scratch Register */
+}
+
+#[repr(C)]
+pub struct AuxRegisterBlock {
+    dll: ReadWrite<u8, DLL::Register>, /* Divisor Latch Low Byte */
+    dlh: ReadWrite<u8, DLH::Register>, /* Divisor Latch High Byte */
+    iir: ReadOnly<u8, IIR::Register>,  /* Interrupt Identification Register */
+}
 
 /*
 How to use
@@ -67,34 +80,6 @@ some8250struct.regBlock.regName.modify(<your inputs here>)
               deref1 redirects to a struct with 3 reg blocks
               deref2 gives you a register block
 */
-
-
-impl<'a> I8250<'a> {
-    // why is base a usize? for mmio 8250.
-    pub fn new(base: usize, _baud: u32, d: &'a mut dyn Driver) -> I8250<'a> {
-        I8250 { base: base, _baud: _baud, d: d }
-    }
-
-    /// Returns a pointer to the register block
-    // fn ptr(&self) -> *const RegisterBlock {
-    //     self.base as *const _
-    // }
-
-    /// Poll the status register until the specified field is set to the given value.
-    /// Returns false iff it timed out.
-    //    fn poll_status(&self, bit: Field<u8, LS::Register>, val: bool) -> bool {
-    fn poll_status(&self, mask: u8, val: u8) -> bool {
-        // Timeout after a few thousand cycles to prevent hanging forever.
-        for _ in 0..100_000 {
-            let mut s = [0; 1];
-            self.d.pread(&mut s, self.base + 5).unwrap();
-            if s[0] & mask == val {
-                return true;
-            }
-        }
-        return false;
-    }
-}
 
 #[allow(dead_code)]
 impl<'a> Driver for I8250<'a> {
@@ -191,11 +176,11 @@ impl<'a> Driver for I8250<'a> {
 // name OFFSET(shift) NUMBITS(num) [ /* optional values */ ]
 register_bitfields! {
     u8,
-    THR [ //  Transmitter Holding Buffer   WRITE ONLY
-      DATA OFFSET(0) NUMBITS(8) []
-    ],
+    // THR [ //  Transmitter Holding Buffer   WRITE ONLY
+    //   DATA OFFSET(0) NUMBITS(8) []
+    // ],
 
-    RBR [ //  Transmitter Receiver Buffer  READ ONLY
+    RBR [ //  Transmitter Receiver Buffer  READ ONLY but combined with THR in this driver
       DATA OFFSET(0) NUMBITS(8) []
     ],
 
@@ -299,63 +284,63 @@ register_bitfields! {
 
 #[cfg(test)]
 mod tests {
-  use super::*;
+    use super::*;
 
-  /*
-  * UART pushing into a vec, copied from log.rs because rust doesn't let you
-  * "use" sibling modules in unit tests
-  */
-  extern crate heapless; // v0.4.x
-  use heapless::consts::*;
-  use heapless::Vec;
-  pub struct TestLog<'a> {
-    dat: &'a mut Vec<u8, U1024>,
-  }
-
-  impl<'a> TestLog<'a> {
-    pub fn new(v: &'a mut Vec<u8, U1024>) -> TestLog {
-        TestLog { dat: v }
-    }
-  }
-
-  impl<'a> Driver for TestLog<'a> {
-    fn init(&mut self) -> Result<()> {
-        Ok(())
+    /*
+     * UART pushing into a vec, copied from log.rs because rust doesn't let you
+     * "use" sibling modules in unit tests
+     */
+    extern crate heapless; // v0.4.x
+    use heapless::consts::*;
+    use heapless::Vec;
+    pub struct TestLog<'a> {
+        dat: &'a mut Vec<u8, U1024>,
     }
 
-    fn pread(&self, _data: &mut [u8], _offset: usize) -> Result<usize> {
-        return Ok(0);
-    }
-
-    fn pwrite(&mut self, data: &[u8], _offset: usize) -> Result<usize> {
-        for (_, &c) in data.iter().enumerate() {
-            self.dat.push(c).unwrap();
+    impl<'a> TestLog<'a> {
+        pub fn new(v: &'a mut Vec<u8, U1024>) -> TestLog {
+            TestLog { dat: v }
         }
-        Ok(data.len())
     }
 
-    fn shutdown(&mut self) {}
-  }
+    impl<'a> Driver for TestLog<'a> {
+        fn init(&mut self) -> Result<()> {
+            Ok(())
+        }
 
-  const IER: usize = 0x01; // Interrupt Enable Register            0b0001 RW
-  const FCR: usize = 0x02; // FIFO Control Register                0b0010 W
-  const LCR: usize = 0x03; // Line Control Register                0b0011 RW
-  const DLL: usize = 0x00; // Divisor Latch Low Byte               0      RW
-  const DLH: usize = 0x01; // Divisor Latch High Byte              0x0001 RW
-  const DLAB: usize = 0x80;    // Divisor Latch Access Bit             0x1000 RW
+        fn pread(&self, _data: &mut [u8], _offset: usize) -> Result<usize> {
+            return Ok(0);
+        }
 
-  #[test]
-  fn uart_driver_inits_correctly() {
-    let mut vec = Vec::<u8, U1024>::new();
-    let log = &mut TestLog::new(&mut vec);
+        fn pwrite(&mut self, data: &[u8], _offset: usize) -> Result<usize> {
+            for (_, &c) in data.iter().enumerate() {
+                self.dat.push(c).unwrap();
+            }
+            Ok(data.len())
+        }
 
-    let test_uart = &mut I8250::new(0, 0, log);
-    test_uart.init().unwrap();
+        fn shutdown(&mut self) {}
+    }
 
-    assert_eq!(1, vec[IER]);      //Interrupts enabled
-    assert_eq!(1, 1 & vec[FCR]);  // FIFOs enabled
+    const IER: usize = 0x01; // Interrupt Enable Register            0b0001 RW
+    const FCR: usize = 0x02; // FIFO Control Register                0b0010 W
+    const LCR: usize = 0x03; // Line Control Register                0b0011 RW
+    const DLL: usize = 0x00; // Divisor Latch Low Byte               0      RW
+    const DLH: usize = 0x01; // Divisor Latch High Byte              0x0001 RW
+    const DLAB: usize = 0x80; // Divisor Latch Access Bit             0x1000 RW
 
-    /* DLAB gets set, baud is non-zero, FIFOs enabled */
-    // assert_eq!(0x1 & vec[DLL], 1);    // Baud rate set to 115200
-  }
+    #[test]
+    fn uart_driver_inits_correctly() {
+        let mut vec = Vec::<u8, U1024>::new();
+        let log = &mut TestLog::new(&mut vec);
+
+        let test_uart = &mut I8250::new(0, 0, log);
+        test_uart.init().unwrap();
+
+        assert_eq!(1, vec[IER]); //Interrupts enabled
+        assert_eq!(1, 1 & vec[FCR]); // FIFOs enabled
+
+        /* DLAB gets set, baud is non-zero, FIFOs enabled */
+        // assert_eq!(0x1 & vec[DLL], 1);    // Baud rate set to 115200
+    }
 }
