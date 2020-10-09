@@ -120,3 +120,37 @@ impl<'a, D: Driver> Driver for SectionReader<'a, D> {
 
     fn shutdown(&mut self) {}
 }
+
+pub struct SectionReaderWriter<'a, D: Driver> {
+    driver: &'a mut D,
+    offset: usize,
+    size: usize,
+}
+
+impl<'a, D: Driver> SectionReaderWriter<'a, D> {
+    pub fn new(driver: &'a mut D, offset: usize, size: usize) -> SectionReaderWriter<D> {
+        SectionReaderWriter { driver, offset, size }
+    }
+}
+
+impl<'a, D: Driver> Driver for SectionReaderWriter<'a, D> {
+    fn init(&mut self) -> Result<()> {
+        Ok(())
+    }
+    fn pread(&self, data: &mut [u8], pos: usize) -> Result<usize> {
+        if pos >= self.size {
+            return EOF;
+        }
+        let count = core::cmp::min(data.len(), self.size - pos);
+        self.driver.pread(&mut data[..count], pos + self.offset)
+    }
+
+    fn pwrite(&mut self, data: &[u8], pos: usize) -> Result<usize> {
+        if pos >= self.size {
+            return EOF;
+        }
+        self.driver.pwrite(data, pos + self.offset)
+    }
+
+    fn shutdown(&mut self) {}
+}
