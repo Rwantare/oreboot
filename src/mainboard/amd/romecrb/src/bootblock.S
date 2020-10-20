@@ -21,7 +21,7 @@
 .section .bootblock.boot
 .code32
 .globl entryfromreset
-entryfromreset: 
+entryfromreset:
 	// The situation on amd zen vs. x86 is so different that it makes no sense to share
 	// a bootblock.
 	// For now, this is a partial bootblock. We will enter in 32-bit mode, with a 32-bit
@@ -122,6 +122,193 @@ gdt_end:
 
 	movb $0xbe, %al
 	outb %al, $0x80
+
+  movw $0x3F8, %dx
+  movb $0xAA, %al
+  push %eax
+  push %ebx
+  push %ecx
+
+
+  movb %al, %bl
+  rorb $4, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb %al, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb $0x20, %al
+  outb %al, %dx
+
+  pop %ecx
+  pop %ebx
+  pop %eax
+  movl $__protected_start, %eax
+  push %eax
+  push %ebx
+  push %ecx
+
+
+  movb %al, %bl
+  rorb $4, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb %al, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb $0x20, %al
+  outb %al, %dx
+
+  pop %ecx
+  pop %ebx
+  pop %eax
+  shrl $8, %eax
+  push %eax
+  push %ebx
+  push %ecx
+
+
+  movb %al, %bl
+  rorb $4, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb %al, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb $0x20, %al
+  outb %al, %dx
+
+  pop %ecx
+  pop %ebx
+  pop %eax
+  shrl $8, %eax
+  push %eax
+  push %ebx
+  push %ecx
+
+
+  movb %al, %bl
+  rorb $4, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb %al, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb $0x20, %al
+  outb %al, %dx
+
+  pop %ecx
+  pop %ebx
+  pop %eax
+  shrl $8, %eax
+  push %eax
+  push %ebx
+  push %ecx
+
+
+  movb %al, %bl
+  rorb $4, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb %al, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb $0x20, %al
+  outb %al, %dx
+
+  pop %ecx
+  pop %ebx
+  pop %eax
 	/* Now that we are in protected mode jump to a 32 bit code segment. */
 	ljmpl	$0x18, $__protected_start
 
@@ -201,7 +388,7 @@ lme:
 //	NOTE: I did the test below for pml4 and pml3.
 //	PML4[0] is 76ff2003
 //	pml3[8] is 76ff3003
-	
+
 //	movl $pml3, %eax
 //	movl	8(%eax), %eax
 //	shrl $24, %eax
@@ -253,8 +440,8 @@ run32:
 	movb $0xb0, %al
 	outb %al, $0x80
 //1:	jmp 1b
-	xorq %rcx,%rcx    
-	// fuck you rust assembler. 
+	xorq %rcx,%rcx
+	// fuck you rust assembler.
 	// it just is not able to do what is needed.
 	// so we go with this shit.
 	//pushw $0x18
@@ -294,7 +481,7 @@ run32:
 	outb %al, $0x80
 	lret
 .code32
-Back32:	
+Back32:
 				//; We are now in Compatibility mode again
 	movb $0xb1, %al
 	outb %al, $0x80
@@ -318,7 +505,7 @@ Back32:
 	outb %al, $0x80
 
 				// ; Deactivate Long Mode
-	movl $0xc0000080, %ecx // ; EFER MSR number. 
+	movl $0xc0000080, %ecx // ; EFER MSR number.
 	rdmsr // ; Read EFER.
 	btc $8, %eax // ; Set LME=0.
 	wrmsr // ; Write EFER.
