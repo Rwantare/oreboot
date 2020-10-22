@@ -81,7 +81,7 @@ gdt:
 gdt_end:
 3:
 movw $0x3F8, %dx
-  movb $0xAA, %al
+  movb $0xAF, %al
   push %eax
   push %ebx
   push %ecx
