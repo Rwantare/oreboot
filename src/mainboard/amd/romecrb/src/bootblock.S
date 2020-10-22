@@ -80,50 +80,7 @@ gdt:
 
 gdt_end:
 3:
-	movb $0x42, %al
-	outb %al, $0x80
-	// TOS contains a pointer to the gdt descriptor
-	popl %eax
-	// The low 4 bits of %eax are 3.
-	// the gdt pointer is aligned to 16.
-	// Set the low 4-bits of offset to 16.
-	andb $0xf0, %al
-	orb $0x10, %al
-	pushl %eax
-	// Adjust the gdt pointer for where we are.
-	addl	$8, %eax
-	// Now put the adjusted pointer
-	movl 	%eax, 8b
-	outb %al, $0x80
-	shrl $8, %eax
-	outb %al, $0x80
-	shrl $8, %eax
-	outb %al, $0x80
-	shrl $8, %eax
-	outb %al, $0x80
-	popl %eax
-	lgdt (%eax)
-	movb $0xbf, %al
-	outb %al, $0x80
-	// Now fix up the page table
-	// pml3 is fine, but pml4 needs the pointer set.
-	// by doing this we remove dependence on the linker to
-	// set pml4[0] correctly.
-	movl $pml3, %eax
-	orl $3, %eax
-	movl %eax, pml4
-	outb %al, $0x80
-	shrl $8, %eax
-	outb %al, $0x80
-	shrl $8, %eax
-	outb %al, $0x80
-	shrl $8, %eax
-	outb %al, $0x80
-
-	movb $0xbe, %al
-	outb %al, $0x80
-
-  movw $0x3F8, %dx
+movw $0x3F8, %dx
   movb $0xAA, %al
   push %eax
   push %ebx
@@ -161,7 +118,14 @@ gdt_end:
   pop %ecx
   pop %ebx
   pop %eax
-  movl $__protected_start, %eax
+
+
+  movl $0x75fe0010, %ecx
+  movl 0x75fe0000, %eax
+  4:
+  //======================================================================
+
+
   push %eax
   push %ebx
   push %ecx
@@ -305,12 +269,116 @@ gdt_end:
 
   movb $0x20, %al
   outb %al, %dx
+  outb %al, %dx
+  movb $0x0A, %al
+  outb %al, %dx
+  movb $0x0D, %al
+  outb %al, %dx
 
   pop %ecx
   pop %ebx
   pop %eax
+
+
+  addl $8, %ecx
+  movl (%ecx), %eax
+
+  jmp 4b
+	// movb $0x42, %al
+	// outb %al, $0x80
+	// // TOS contains a pointer to the gdt descriptor
+	// popl %eax
+	// // The low 4 bits of %eax are 3.
+	// // the gdt pointer is aligned to 16.
+	// // Set the low 4-bits of offset to 16.
+	// andb $0xf0, %al
+	// orb $0x10, %al
+	// pushl %eax
+	// // Adjust the gdt pointer for where we are.
+	// addl	$8, %eax
+	// // Now put the adjusted pointer
+	// movl 	%eax, 8b
+	// outb %al, $0x80
+	// shrl $8, %eax
+	// outb %al, $0x80
+	// shrl $8, %eax
+	// outb %al, $0x80
+	// shrl $8, %eax
+	// outb %al, $0x80
+	// popl %eax
+	// lgdt (%eax) //75fe
+
+  // pushl %edx /* Print num */
+  // movw $0x3f8, %dx
+  // movb $'1', %al
+  // outb %al, %dx
+  // popl %edx /* Print num */
+
+	// movb $0xbf, %al
+	// outb %al, $0x80
+	// // Now fix up the page table
+	// // pml3 is fine, but pml4 needs the pointer set.
+	// // by doing this we remove dependence on the linker to
+	// // set pml4[0] correctly.
+	// movl $pml3, %eax
+	// orl $3, %eax
+	// movl %eax, pml4
+	// outb %al, $0x80
+	// shrl $8, %eax
+	// outb %al, $0x80
+	// shrl $8, %eax
+	// outb %al, $0x80
+	// shrl $8, %eax
+	// outb %al, $0x80
+
+	// movb $0xbe, %al
+	// outb %al, $0x80
+
+
+
 	/* Now that we are in protected mode jump to a 32 bit code segment. */
 	ljmpl	$0x18, $__protected_start
+
+p4:
+  push %eax
+  push %ebx
+  push %ecx
+
+
+  movb %al, %bl
+  rorb $4, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb %al, %bl
+  andb $0x0f, %bl
+  cmp $9, %bl
+  jg 1f
+  add $'0', %bl
+  jmp 2f
+  1: add $0x37, %bl
+  2:
+  xchgb %bl, %al
+  outb %al, %dx
+  xchgb %al, %bl
+
+  movb $0x20, %al
+  outb %al, %dx
+
+  pop %ecx
+  pop %ebx
+  pop %eax
+  ret
+
+
 
 	// TODO: should set accessed and dirty bits in gdt entries
 	// so CPU does not try to write them to ROM?
@@ -322,7 +390,6 @@ pml3:
 	.quad 0x0000083,0x40000083,0x80000083,0xc0000083
 	.align 0x1000
 .code32
-	.code32
 
 	// we're now in 32-bit mode.
 /*
@@ -343,6 +410,13 @@ pml3:
  */
 	.align	4
 __protected_start:
+  movw $0x3f8, %dx
+  movb $'3', %al
+  outb %al, %dx
+  // jmp 1b
+  outb %al, %dx
+  outb %al, %dx
+
 	movb $0xdc, %al
 	outb %al, $0x80
 	// Enter here in 32-bit protected mode. Welcome to 1982.
@@ -415,6 +489,8 @@ lme:
 	//ORL	/*$(PG|WP)*/$0x80010000, %eax			/* Paging Enable */
 	ORL	$0x80000000, %eax			/* Paging Enable */
 	movl	%eax, %cr0
+  movb $'8', %al
+  outb %al, %dx
 	ljmp $0x28, $_identity
 
 
@@ -425,6 +501,8 @@ lme:
 _identity:
 	movb $0x34, %al
 	outb %al, $0x80
+  movb $'9', %al
+  outb %al, %dx
 //1:	jmp 1b
 	call _start
 	movb $0xff, %al
