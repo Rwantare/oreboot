@@ -135,8 +135,8 @@ pub fn msrs(w: &mut print::WriteTo) {
     one(w, 0xc001029a, 0x9731905d, false);
     one(w, 0xc001029b, 0x95073877, false);
     one(w, 0xc00102b3, 0xfff0, false);
-    one(w, 0xc00102f0, 0x1, false);
-    one(w, 0xc0010400, 0x600, false);
+    // one(w, 0xc00102f0, 0x1, false);
+    // one(w, 0xc0010400, 0x600, false);
     one(w, 0xc0010401, 0x2c00, false);
     one(w, 0xc0010402, 0x8, false);
     one(w, 0xc0010406, 0x40, false);

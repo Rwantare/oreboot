@@ -168,13 +168,13 @@ impl BzImage {
         // check magic numbers
         if header.boot_flag != MAGIC_AA55 {
             let i = header.boot_flag;
-            let p = unsafe {&header.boot_flag};
+            let p = unsafe { &header.boot_flag };
             write!(w, "boot flag is {:x}, not {:x}, at {:x}, \n\r\n", i, MAGIC_AA55, p).unwrap();
             return Err("magic number missing: header.boot_flag != 0xaa55");
         }
         if header.header != HDRS {
             let i = header.header;
-            let p = unsafe {&header.header};
+            let p = unsafe { &header.header };
             write!(w, "header.header is {:x}, not {:x} @ {:x}\n\r\n", i, HDRS, p).unwrap();
             return Err("magic number missing: header.header != 0x53726448");
         }
@@ -284,7 +284,9 @@ impl BzImage {
         bp.e820_table[3] = entry_low_main;
         bp.e820_table[4] = entry_main;
         bp.e820_entries = 5;
-        unsafe { copy(&bp, 0x90000 as *mut BootParams, size_of::<BootParams>());}
+        unsafe {
+            copy(&bp, 0x90000 as *mut BootParams, size_of::<BootParams>());
+        }
 
         Ok(0)
     }

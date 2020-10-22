@@ -3,10 +3,10 @@
 // from github.com:akaros/vmm-akaros/xhype/xhype
 use crate::consts::x86::*;
 use crate::utils::round_up_4k;
-use core::mem::size_of;
 use core::fmt::Write;
-use print;
+use core::mem::size_of;
 use core::ptr;
+use print;
 // https://uefi.org/sites/default/files/resources/ACPI_6_3_May16.pdf
 
 // Table 5-27 RSDP Structure
@@ -360,17 +360,17 @@ pub fn setup_bios_tables(w: &mut print::WriteTo, start: usize, cores: u32) -> us
 
     // LAPICNMI
     write!(w, "LAPICNMI\r\n").unwrap();
-    let lapicnmi = AcpiMadtLAPICNMI { header: AcpiSubtableHader { r#type: MADT_LOCAL_LAPICNMI, length: size_of::<AcpiMadtLAPICNMI>() as u8 }, acpi_processor_uid: 0xff, flags:5 , local_interrupt: 1, ..Default::default() };
-    write(w, lapicnmi, local_lapicnmi_offset, 0 as usize); 
+    let lapicnmi = AcpiMadtLAPICNMI { header: AcpiSubtableHader { r#type: MADT_LOCAL_LAPICNMI, length: size_of::<AcpiMadtLAPICNMI>() as u8 }, acpi_processor_uid: 0xff, flags: 5, local_interrupt: 1, ..Default::default() };
+    write(w, lapicnmi, local_lapicnmi_offset, 0 as usize);
 
     // isor -- rhymes with eyesore
     write!(w, "First ISOR\r\n").unwrap();
     let isor = AcpiMadtInterruptOverride { header: AcpiSubtableHader { r#type: MADT_LOCAL_ISOR, length: size_of::<AcpiMadtInterruptOverride>() as u8 }, bus: 0, sourceirq: 9, globalirq: 9, flags: 0xf, ..Default::default() };
-    write(w, isor, local_isor_offset, 0 as usize); 
+    write(w, isor, local_isor_offset, 0 as usize);
 
     write!(w, "Second ISOR\r\n").unwrap();
     let isor = AcpiMadtInterruptOverride { header: AcpiSubtableHader { r#type: MADT_LOCAL_ISOR, length: size_of::<AcpiMadtInterruptOverride>() as u8 }, bus: 0, sourceirq: 0, globalirq: 2, flags: 0, ..Default::default() };
-    write(w, isor, local_isor_offset, 1 as usize); 
+    write(w, isor, local_isor_offset, 1 as usize);
 
     write!(w, "Gencsum from {:x} to {:x} store into {:x}\r\n", madt_offset, madt_offset + madt_total_length, ACPI_TABLE_HEADER_CHECKSUM_OFFSET).unwrap();
     write(w, gencsum(madt_offset, madt_offset + madt_total_length), madt_offset, ACPI_TABLE_HEADER_CHECKSUM_OFFSET); // XXX

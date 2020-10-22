@@ -81,7 +81,7 @@ gdt:
 gdt_end:
 3:
 	movw $0x3F8, %dx
-  movb $0xAD, %al
+  movb $0xAA, %al
   call p4
 	// TOS contains a pointer to the gdt descriptor
 	popl %eax
@@ -233,14 +233,10 @@ __protected_start_no_load_segs:
 	// Once again we put the data structures inline in this
 	// memory. This code is, we hope, PIC.
 lme:
-	movb $0x31, %al
-	outb %al, $0x80
 	movl	%cr4, %eax
 	andl	/*~$Pse*/$0xffffffef, %eax			/* Page Size */
 	orl	$0x60, %eax		/* Page Global, Phys. Address */
 	movl	%eax, %cr4
-	movb $0x32, %al
-	outb %al, $0x80
 	#define Efer  0xC0000080
 	#define Lme (1<<8)
 	movl	$0xc0000080, %ecx			/* Extended Feature Enable */
@@ -257,11 +253,7 @@ lme:
 //	shrl $24, %eax
 //	outb    %al, $0x80
 //1: jmp 1b
-	movb $0x33, %al
-	outb %al, $0x80
   movw $0x3f8, %dx /* Print num */
-  movb $'7', %al
-  outb %al, %dx
 	movl	%cr0, %eax
 	// yeah yeah repeat defines. It's ok. They've been constant for almost 40 years.
 	// view screen scrape from the docs. Includes of 40-year-old constants are a PITA.

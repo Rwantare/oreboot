@@ -10,7 +10,7 @@ fn one(w: &mut print::WriteTo, a: u8, v: u8) {
     write!(w, "{:x} {:x}", a, v).unwrap();
     unsafe {
         outb(0xc00, a);
-    outb(0xc01, v);
+        outb(0xc01, v);
     }
 }
 pub fn c00(w: &mut print::WriteTo) {

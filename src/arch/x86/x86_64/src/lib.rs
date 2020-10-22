@@ -4,10 +4,10 @@
 #![feature(global_asm)]
 #![deny(warnings)]
 
-pub mod ioport;
-pub mod bzimage;
 pub mod bios;
+pub mod bzimage;
 pub mod consts;
+pub mod ioport;
 pub mod utils;
 
 pub fn halt() -> ! {

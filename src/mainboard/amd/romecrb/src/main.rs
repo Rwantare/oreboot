@@ -103,7 +103,7 @@ fn ind(w: &mut print::WriteTo, a: Vec<u8, U16>) -> () {
 
     // I wish I knew rust. This code is shit.
     for a in vals.iter() {
-        let m = unsafe {inl(*a as u16)};
+        let m = unsafe { inl(*a as u16) };
         write!(w, "{:x?}: {:x?}\r\n", *a, m).unwrap();
     }
 }
@@ -113,11 +113,13 @@ fn out(w: &mut print::WriteTo, a: Vec<u8, U16>) -> () {
     hex(&a, &mut vals);
 
     // I wish I knew rust. This code is shit.
-    for i in 0..vals.len()/2 {
-        let a = vals[i*2] as u16;
-        let v = vals[i*2+1] as u32;
-        unsafe {outl(a, v);};
-        write!(w, "{:x?}: {:x?}\r\n", a,v).unwrap();
+    for i in 0..vals.len() / 2 {
+        let a = vals[i * 2] as u16;
+        let v = vals[i * 2 + 1] as u32;
+        unsafe {
+            outl(a, v);
+        };
+        write!(w, "{:x?}: {:x?}\r\n", a, v).unwrap();
     }
 }
 
@@ -230,13 +232,17 @@ pub extern "C" fn _start(fdt_address: usize) -> ! {
         load: 0x01000000,
         entry: 0x1000200,
     };
-    if true {msrs(w);}
+    if true {
+        msrs(w);
+    }
     p[0] = p[0] + 1;
     write!(w, "Write bios tables\r\n").unwrap();
     setup_bios_tables(w, 0xf0000, 1);
     write!(w, "Wrote bios tables, entering debug\r\n").unwrap();
     debug(w);
-    if false {msrs(w);}
+    if false {
+        msrs(w);
+    }
     c00(w);
     write!(w, "LDN is {:x}\r\n", peek32(0xfee000d0)).unwrap();
     poke32(0xfee000d0, 0x1000000);

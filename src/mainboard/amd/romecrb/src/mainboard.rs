@@ -18,7 +18,6 @@ use core::ptr;
 use model::*;
 use x86_64::instructions::{rdmsr, wrmsr};
 
-
 const FCH_UART_LEGACY_DECODE: u32 = 0xfedc0020;
 const FCH_LEGACY_3F8_SH: u16 = 1 << 3;
 
@@ -35,19 +34,18 @@ fn snmr(a: u32) -> u32 {
     // the smn device is at (0)
     unsafe {
         outl(0xcf8, 0x800000b8);
-    outl(0xcfc, a);
-    outl(0xcf8, 0x800000bc);
-    inl(0xcfc)
+        outl(0xcfc, a);
+        outl(0xcf8, 0x800000bc);
+        inl(0xcfc)
     }
 }
-
 
 fn snmw(a: u32, v: u32) {
     unsafe {
         outl(0xcf8, 0x800000b8);
-    outl(0xcfc, a);
-    outl(0xcf8, 0x800000bc);
-    outl(0xcfc, v);
+        outl(0xcfc, a);
+        outl(0xcf8, 0x800000bc);
+        outl(0xcfc, v);
     }
 }
 
@@ -85,14 +83,11 @@ unsafe fn inl(port: u16) -> u32 {
 }
 
 // WIP: mainboard driver. I mean the concept is a WIP.
-pub struct MainBoard {
-}
+pub struct MainBoard {}
 
 impl MainBoard {
     pub fn new() -> MainBoard {
-        MainBoard {
-  
-        }
+        MainBoard {}
     }
 }
 
@@ -110,11 +105,11 @@ impl Driver for MainBoard {
         // fed800fc is the uart control reg.
         // bit 28 is the bit which sets it between 48m and 1.8m
         // we want 1.8m. They made oddball 48m default. Stupid.
-        let mut uc = peek32(0xfed800fc);
-        uc = uc | (1 << 28);
-        poke32(0xfed800fc, uc);
+        // let mut uc = peek32(0xfed800fc);
+        // uc = uc | (1 << 28);
+        // poke32(0xfed800fc, uc);
         // Set up the legacy decode.
-        poke16(FCH_UART_LEGACY_DECODE, FCH_LEGACY_3F8_SH);
+        // poke16(FCH_UART_LEGACY_DECODE, FCH_LEGACY_3F8_SH);
         unsafe {
             let v = rdmsr(0x1b) | 0x900;
             wrmsr(0x1b, v);
