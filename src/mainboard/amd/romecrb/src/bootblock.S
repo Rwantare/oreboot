@@ -135,43 +135,60 @@ gdt_end:
 	ljmpl	$0x18, $__protected_start
 
 p4:
-  push %eax
   push %ebx
-  push %ecx
+  push %eax // Input in ax
 
-  movb %al, %bl
-  rorb $4, %bl
-  andb $0x0f, %bl
-  cmp $9, %bl
+  movw $0x3FD, %dx  // Check LCR while transmit buffer is full
+  1: inb %dx, %al
+  andb $0x20, %al
+  cmp $0x20, %al
+  jl 1b             // End check
+
+  pop %eax
+  push %eax // Restore input to ax
+
+  movw $0x3F8, %dx  // UART port
+  rorb $4, %al      // Upper nibble first
+  andb $0x0f, %al
+  cmp $9, %al
   jg 1f
-  add $'0', %bl
+  add $'0', %al
   jmp 2f
-  1: add $0x37, %bl
-  2:
-  xchgb %bl, %al
-  outb %al, %dx
-  xchgb %al, %bl
+  1: add $0x37, %al
+  2: outb %al, %dx
 
-  movb %al, %bl
-  andb $0x0f, %bl
-  cmp $9, %bl
+  movw $0x3FD, %dx  // LCR check
+  1: inb %dx, %al
+  andb $0x20, %al
+  cmp $0x20, %al
+  jl 1b             // End check
+
+  pop %eax
+  push %eax // Restore input to ax
+
+  movw $0x3F8, %dx  // UART port
+  andb $0x0f, %al
+  cmp $9, %al
   jg 1f
-  add $'0', %bl
+  add $'0', %al
   jmp 2f
-  1: add $0x37, %bl
-  2:
-  xchgb %bl, %al
-  outb %al, %dx
-  xchgb %al, %bl
+  1: add $0x37, %al
+  2: outb %al, %dx
 
+  movw $0x3FD, %dx  // LCR check
+  1: inb %dx, %al
+  andb $0x20, %al
+  cmp $0x20, %al
+  jl 1b             // End check
+
+  movw $0x3F8, %dx  // UART port
   movb $0x0A, %al // \r\n after a print
   outb %al, %dx
   movb $0x0D, %al
   outb %al, %dx
 
-  pop %ecx
-  pop %ebx
   pop %eax
+  pop %ebx
   ret
 
 
