@@ -1,20 +1,23 @@
 use core::fmt::Write;
 use x86_64::instructions::{rdmsr, wrmsr};
 
-fn one(w: &mut print::WriteTo, a: u32, v: u64, ro: bool) {
-    write!(w, "{:x} ", a).unwrap();
-    let rv = rdmsr(a);
-    let mut d = "SAME:";
-    if rv != v {
-        d = "DIFF:";
-    }
-    write!(w, "{}{:x} got {:x}", d, v, rv,).unwrap();
-    if !ro {
+fn one(w: &mut print::WriteTo, address: u32, value: u64, read_only: bool) {
+    write!(w, "{:x} ", address).unwrap();
+
+    let read_value = rdmsr(address);
+
+    let mut d = match read_value {
+        value => "SAME:",
+        _ => "DIFF:",
+    };
+    write!(w, "{}{:x} got {:x}", d, value, read_value,).unwrap();
+
+    if !read_only {
         unsafe {
-            wrmsr(a, v);
+            wrmsr(address, value);
         }
-        let nv = rdmsr(a);
-        write!(w, " -- wrmsr: and got {:x}; \r\n", nv).unwrap();
+        let checked_value = rdmsr(address);
+        write!(w, " -- wrmsr: and got {:x}; \r\n", checked_value).unwrap();
     }
     write!(w, "\r\n").unwrap();
 }

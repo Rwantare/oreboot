@@ -103,7 +103,7 @@ gdt_end:
 	shrl $8, %eax
 	outb %al, $0x80
 	popl %eax
-	lgdt (%eax) //75fe
+	lgdt (%eax)
 
   pushl %edx /* Print num */
   movw $0x3f8, %dx
