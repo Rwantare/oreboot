@@ -8,12 +8,8 @@ use arch::bzimage::BzImage;
 use arch::ioport::IOPort;
 use core::fmt::Write;
 use core::panic::PanicInfo;
-use cpu::model::amd_family_id;
-use cpu::model::amd_model_id;
 use model::Driver;
 use print;
-use raw_cpuid::CpuId;
-use soc::soc_init;
 use uart::amdmmio::AMDMMIO;
 use uart::debug_port::DebugPort;
 use uart::i8250::I8250;
@@ -204,167 +200,14 @@ fn consdebug(w: &mut impl core::fmt::Write) -> () {
 }
 //global_asm!(include_str!("init.S"));
 
-fn cpu_init(w: &mut impl core::fmt::Write) -> Result<(), &str> {
-    let cpuid = CpuId::new();
-    match cpuid.get_vendor_info() {
-        Some(vendor) => {
-            if vendor.as_string() != "AuthenticAMD" {
-                panic!("Only AMD is supported");
-            }
-        }
-        None => {
-            panic!("Could not determine whether or not CPU is AMD");
-        }
-    }
-    // write!(w, "CPU Model is: {}\r\n", cpuid.get_extended_function_info().as_ref().map_or_else(|| "n/a", |extfuninfo| extfuninfo.processor_brand_string().unwrap_or("unreadable"),)); // "AMD EPYC TITUS N-Core Processor"
-    let amd_family_id = cpuid.get_feature_info().map(|info| amd_family_id(&info));
-    let amd_model_id = cpuid.get_feature_info().map(|info| amd_model_id(&info));
-    match amd_family_id {
-        Some(family_id) => {
-            match amd_model_id {
-                Some(model_id) => {
-                    write!(w, "AMD CPU: family {:X}h, model {:X}h\r\n", family_id, model_id).unwrap();
-                }
-                None => (),
-            }
-        }
-        None => (),
-    }
-    match amd_family_id {
-        Some(0x17) => {
-            match amd_model_id {
-                Some(v) if v >= 0x31 => {
-                    // Rome
-                    soc_init(w)
-                }
-                _ => {
-                    write!(w, "Unsupported AMD CPU\r\n").unwrap();
-                    Err("Unsupported AMD CPU")
-                }
-            }
-        }
-        Some(0x19) => {
-            // Milan
-            soc_init(w)
-        }
-        _ => {
-            write!(w, "Unsupported AMD CPU\r\n").unwrap();
-            Err("Unsupported AMD CPU")
-        }
-    }
-}
-
 #[no_mangle]
 pub extern "C" fn _start(fdt_address: usize) -> ! {
-    let m = &mut MainBoard::new();
-    m.init().unwrap();
-    let io = &mut IOPort;
-    let post = &mut IOPort;
-    let uart0 = &mut I8250::new(0x3f8, 0, io);
-    uart0.init().unwrap();
     let debug_io = &mut IOPort;
     let debug = &mut DebugPort::new(0x80, debug_io);
-    uart0.init().unwrap();
-    uart0.pwrite(b"Welcome to oreboot\r\n", 0).unwrap();
     debug.init().unwrap();
-    debug.pwrite(b"Welcome to oreboot - debug port 80\r\n", 0).unwrap();
-    let p0 = &mut AMDMMIO::com2();
-    p0.init().unwrap();
-    p0.pwrite(b"Welcome to oreboot - com2\r\n", 0).unwrap();
-    let s = &mut [debug as &mut dyn Driver, uart0 as &mut dyn Driver, p0 as &mut dyn Driver];
-    let console = &mut DoD::new(s);
-
-    for _i in 1..32 {
-        console.pwrite(b"Welcome to oreboot\r\n", 0).unwrap();
+    for _i in 1..128 {
+        debug.pwrite(b"Welcome to oreboot - debug port 80\r\n", 0).unwrap();
     }
-    let mut p: [u8; 1] = [0xf0; 1];
-    post.pwrite(&p, 0x80).unwrap();
-    let w = &mut print::WriteTo::new(console);
-
-    // It is hard to say if we need to do this.
-    if true {
-        let v = unsafe { Msr::new(0xc001_1004).read() };
-        write!(w, "c001_1004 is {:x} and APIC is bit {:x}\r\n", v, 1 << 9).unwrap();
-        // it's set already
-        //unsafe {wrmsr(0xc001_1004, v | (1 << 9));}
-        //let v = rdmsr(0xc001_1004);
-        //write!(w, "c001_1004 is {:x} and APIC is bit {:x}\r\n", v, 1 << 9).unwrap();
-    }
-    if true {
-        let v = unsafe { Msr::new(0xc001_1005).read() };
-        write!(w, "c001_1005 is {:x} and APIC is bit {:x}\r\n", v, 1 << 9).unwrap();
-        // it's set already
-        //unsafe {wrmsr(0xc001_1004, v | (1 << 9));}
-        //let v = rdmsr(0xc001_1004);
-        //write!(w, "c001_1004 is {:x} and APIC is bit {:x}\r\n", v, 1 << 9).unwrap();
-    }
-    unsafe {
-        write!(w, "0x1b is {:x} \r\n", Msr::new(0x1b).read()).unwrap();
-    }
-    p[0] = p[0] + 1;
-    let payload = &mut BzImage {
-        low_mem_size: 0x80000000,
-        high_mem_start: 0x100000000,
-        high_mem_size: 0,
-        // TODO: get this from the FDT.
-        rom_base: 0xffc00000,
-        rom_size: 0x300000,
-        load: 0x01000000,
-        entry: 0x1000200,
-    };
-    if true {
-        msrs(w);
-    }
-    p[0] = p[0] + 1;
-
-    match cpu_init(w) {
-        Ok(()) => {}
-        Err(_e) => {
-            write!(w, "Error from amd_init acknowledged--continuing anyway\r\n").unwrap();
-        }
-    }
-
-    write!(w, "Write acpi tables\r\n").unwrap();
-    setup_acpi_tables(w, 0xf0000, 1);
-    write!(w, "Wrote bios tables, entering debug\r\n").unwrap();
-    consdebug(w);
-    if false {
-        msrs(w);
-    }
-    c00(w);
-    write!(w, "LDN is {:x}\r\n", peek32(0xfee000d0)).unwrap();
-    poke32(0xfee000d0, 0x1000000);
-    write!(w, "LDN is {:x}\r\n", peek32(0xfee000d0)).unwrap();
-
-    write!(w, "ORE: addr {:x}\r\n", peek32(0xE00_0000)).unwrap(); // MMIO config base address, should have a device and VEN ID
-    arch::pci::scan_bus(w, 0);
-    // arch::pci::setup_root_complex(w, 0x20);
-    // arch::pci::scan_bus(w, 0x20);
-    // arch::pci::setup_root_complex(w, 0x40);
-    // arch::pci::setup_root_complex(w, 0x60);
-    // arch::pci::setup_root_complex(w, 0x80);
-    // arch::pci::setup_root_complex(w, 0xA0);
-    // arch::pci::setup_root_complex(w, 0xC0);
-    // arch::pci::setup_root_complex(w, 0xE0);
-
-    write!(w, "loading payload with fdt_address {}\r\n", fdt_address).unwrap();
-    post.pwrite(&p, 0x80).unwrap();
-    p[0] = p[0] + 1;
-    payload.load(w).unwrap();
-    post.pwrite(&p, 0x80).unwrap();
-    p[0] = p[0] + 1;
-    write!(w, "Back from loading payload, call debug\r\n").unwrap();
-    consdebug(w);
-    write!(w, "Running payload entry is {:x}\r\n", payload.entry).unwrap();
-    post.pwrite(&p, 0x80).unwrap();
-    p[0] = p[0] + 1;
-    payload.run(w);
-    post.pwrite(&p, 0x80).unwrap();
-    p[0] = p[0] + 1;
-
-    write!(w, "Unexpected return from payload\r\n").unwrap();
-    post.pwrite(&p, 0x80).unwrap();
-    p[0] = p[0] + 1;
     arch::halt()
 }
 
